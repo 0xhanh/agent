@@ -12,3 +12,7 @@ machinery/test*
 machinery/init-dev.sh
 machinery/.env
 deployments/docker/private-docker-compose.yaml
+
+*.sh
+hosts
+note.md

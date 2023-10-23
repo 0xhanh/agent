@@ -91,7 +91,8 @@ class App extends React.Component {
   render() {
     const { t, connected } = this.props;
     const { children, username, dashboard, dispatchLogout } = this.props;
-    const cloudOnline = this.getCurrentTimestamp() - dashboard.cloudOnline < 30;
+    // hvd
+    // const cloudOnline = this.getCurrentTimestamp() - dashboard.cloudOnline < 30;
     return (
       <>
         {config.MODE !== 'release' && (
@@ -178,7 +179,8 @@ class App extends React.Component {
           <Main>
             <Gradient />
 
-            {!cloudOnline && (
+            {/* hvd */}
+            {/* {!cloudOnline && (
               <a
                 href="https://app.kerberos.io"
                 target="_blank"
@@ -192,7 +194,7 @@ class App extends React.Component {
                   </div>
                 </div>
               </a>
-            )}
+            )} */}
 
             {dashboard.offlineMode === 'true' && (
               <Link to="/settings">

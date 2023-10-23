@@ -130,6 +130,10 @@ func ConfigureMQTT(configDirectory string, configuration *models.Configuration, 
 
 				// Create a susbcription for listen and reply
 				MQTTListenerHandler(c, hubKey, configDirectory, configuration, communication)
+
+				// hvd
+				// Create a subscription to listen for live restream request.
+				MQTTListenerHandleRestream(c, hubKey, configuration, communication)
 			}
 		}
 		mqc := mqtt.NewClient(opts)
@@ -476,8 +480,38 @@ func DisconnectMQTT(mqttClient mqtt.Client, config *models.Config) {
 		// Cleanup all subscriptions
 		// New methods
 		mqttClient.Unsubscribe("kerberos/agent/" + PREV_HubKey)
+
+		// hvd
+		mqttClient.Unsubscribe("kerberos/" + PREV_HubKey + "/device/" + PREV_AgentKey + "/livestream")
+
 		mqttClient.Disconnect(1000)
 		mqttClient = nil
 		log.Log.Info("DisconnectMQTT: MQTT client disconnected.")
 	}
+}
+
+// hvd
+func MQTTListenerHandleRestream(mqttClient mqtt.Client, hubKey string, configuration *models.Configuration, communication *models.Communication) {
+	config := configuration.Config
+	topicRequest := "kerberos/" + hubKey + "/device/" + config.Key + "/livestream"
+
+	log.Log.Info("MQTTListenerHandleRestream: subcribe to topic: " + topicRequest)
+
+	mqttClient.Subscribe(topicRequest, 0, func(c mqtt.Client, msg mqtt.Message) {
+		if communication.CameraConnected {
+			var sdp models.LiveRestreamReq
+			if err := json.Unmarshal(msg.Payload(), &sdp); err == nil {
+				select {
+				case communication.HandleLiveRestream <- sdp:
+				default:
+				}
+				log.Log.Info("MQTTListenerHandleRestream: received request to setup a live restream.")
+			} else {
+				log.Log.Warning("MQTTListenerHandleRestream: Error request playload: " + err.Error())
+			}
+		} else {
+			log.Log.Info("MQTTListenerHandleRestream: received request to setup a live restream, but camera is not connected.")
+		}
+		msg.Ack()
+	})
 }
