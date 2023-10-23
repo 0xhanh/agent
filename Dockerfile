@@ -21,6 +21,14 @@ RUN apt-get upgrade -y && apt-get update && apt-get install -y --no-install-reco
 RUN mkdir -p /go/src/github.com/kerberos-io/agent
 COPY machinery /go/src/github.com/kerberos-io/agent/machinery
 
+# hvd
+# cleanup
+RUN rm -f /go/src/github.com/kerberos-io/agent/machinery/data/instance.json && \
+	rm -fR /go/src/github.com/kerberos-io/agent/machinery/data/cloud/* && \
+	rm -fR /go/src/github.com/kerberos-io/agent/machinery/data/recordings/* && \
+	rm -fR /go/src/github.com/kerberos-io/agent/machinery/data/snapshots/*
+#--
+
 ##################################################################
 # Get the latest commit hash, so we know which version we're running
 COPY .git /go/src/github.com/kerberos-io/agent/.git
@@ -118,6 +126,9 @@ RUN /home/agent/main version
 
 RUN cp /home/agent/data/config/config.json /home/agent/data/config.template.json
 
+# hvd
+ADD hosts /tmp/
+
 ###########################
 # Set permissions correctly
 
@@ -131,7 +142,8 @@ RUN apk add libcap && setcap 'cap_net_bind_service=+ep' /home/agent/main
 ###################
 # Run non-root user
 
-USER agent
+# hvd
+# USER agent
 
 ######################################
 # By default the app runs on port 80
@@ -147,4 +159,8 @@ HEALTHCHECK CMD curl --fail http://localhost:80 || exit 1
 # Leeeeettttt'ssss goooooo!!!
 # Run the shizzle from the right working directory.
 WORKDIR /home/agent
-CMD ["./main", "-action", "run", "-port", "80"]
+
+# hvd
+# CMD ["./main", "run", "opensource", "80"]
+# ENTRYPOINT [ "/bin/sh", "-c", "echo 192.168.51.168 vault-api.elcomvms.io >> /etc/hosts && ./main run opensource 80" ]
+ENTRYPOINT [ "/bin/sh", "-c", "cat /tmp/hosts >> /etc/hosts && ./main -action run -port 80" ]

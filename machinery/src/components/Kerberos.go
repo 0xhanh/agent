@@ -4,6 +4,7 @@ import (
 	"context"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -52,7 +53,8 @@ func Bootstrap(configDirectory string, configuration *models.Configuration, comm
 	communication.HandleStream = make(chan string, 1)
 	communication.HandleSubStream = make(chan string, 1)
 	communication.HandleUpload = make(chan string, 1)
-	communication.HandleHeartBeat = make(chan string, 1)
+	// hvd
+	// communication.HandleHeartBeat = make(chan string, 1)
 	communication.HandleLiveSD = make(chan int64, 1)
 	communication.HandleLiveHDKeepalive = make(chan string, 1)
 	communication.HandleLiveHDPeers = make(chan string, 1)
@@ -68,8 +70,9 @@ func Bootstrap(configDirectory string, configuration *models.Configuration, comm
 	subDecoder := &ffmpeg.VideoDecoder{}
 	cameraSettings := &models.Camera{}
 
+	// hvd
 	// Handle heartbeats
-	go cloud.HandleHeartBeat(configuration, communication, uptimeStart)
+	// go cloud.HandleHeartBeat(configuration, communication, uptimeStart)
 
 	// We'll create a MQTT handler, which will be used to communicate with Kerberos Hub.
 	// Configure a MQTT client which helps for a bi-directional communication
@@ -282,6 +285,19 @@ func RunAgent(configDirectory string, configuration *models.Configuration, commu
 		// Handle ONVIF actions
 		go onvif.HandleONVIFActions(configuration, communication)
 
+		// hvd
+		communication.HandleLiveRestream = make(chan models.LiveRestreamReq, 1)
+		communication.LiveRestreamControl = make(chan string, 1)
+		mainStreamCursor := queue.Latest()
+		var substreamCursor *pubsub.QueueCursor = nil
+		if subStreamEnabled {
+			substreamCursor = subQueue.Latest()
+		}
+		go HandleLiveRestream(mainStreamCursor, substreamCursor, configuration, communication, mqttClient)
+		// if recovery from the prev crash
+		recoverInstance(communication)
+		//
+
 		// If we reach this point, we have a working RTSP connection.
 		communication.CameraConnected = true
 
@@ -312,6 +328,9 @@ func RunAgent(configDirectory string, configuration *models.Configuration, commu
 			communication.HandleSubStream <- "stop"
 		}
 
+		// hvd
+		communication.LiveRestreamControl <- "stop"
+
 		time.Sleep(time.Second * 3)
 
 		infile.Close()
@@ -328,6 +347,13 @@ func RunAgent(configDirectory string, configuration *models.Configuration, commu
 		}
 		close(communication.HandleMotion)
 		communication.HandleMotion = nil
+
+		// hvd
+		close(communication.HandleLiveRestream)
+		communication.HandleLiveRestream = nil
+		close(communication.LiveRestreamControl)
+		communication.LiveRestreamControl = nil
+		//
 
 		// Waiting for some seconds to make sure everything is properly closed.
 		log.Log.Info("RunAgent: waiting 3 seconds to make sure everything is properly closed.")
@@ -384,4 +410,23 @@ func ControlAgent(communication *models.Communication) {
 		}
 	}()
 	log.Log.Debug("ControlAgent: finished")
+}
+
+// hvd
+func recoverInstance(communication *models.Communication) {
+	var instance models.Instance
+	OpenInstance(&instance)
+	for _, v := range instance.LiveRestreams {
+		// fmt.Printf("key[%s] value[%s]\n", k, v)
+		if strings.Compare(v.Status, "Started") == 0 {
+			req := models.LiveRestreamReq{
+				ReqId:     v.ReqId,
+				ReqType:   "on",
+				Stream:    v.Stream,
+				ProxyAddr: v.Result,
+			}
+
+			communication.HandleLiveRestream <- req
+		}
+	}
 }

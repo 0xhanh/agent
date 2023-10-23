@@ -29,13 +29,17 @@ type Communication struct {
 	HandleLiveHDHandshake chan RequestHDStreamPayload
 	HandleLiveHDPeers     chan string
 	HandleONVIF           chan OnvifAction
-	IsConfiguring         *abool.AtomicBool
-	Queue                 *pubsub.Queue
-	SubQueue              *pubsub.Queue
-	DecoderMutex          *sync.Mutex
-	SubDecoderMutex       *sync.Mutex
-	Decoder               *ffmpeg.VideoDecoder
-	SubDecoder            *ffmpeg.VideoDecoder
-	Image                 string
-	CameraConnected       bool
+	// hvd
+	HandleLiveRestream  chan LiveRestreamReq
+	LiveRestreamControl chan string
+	//
+	IsConfiguring   *abool.AtomicBool
+	Queue           *pubsub.Queue
+	SubQueue        *pubsub.Queue
+	DecoderMutex    *sync.Mutex
+	SubDecoderMutex *sync.Mutex
+	Decoder         *ffmpeg.VideoDecoder
+	SubDecoder      *ffmpeg.VideoDecoder
+	Image           string
+	CameraConnected bool
 }
